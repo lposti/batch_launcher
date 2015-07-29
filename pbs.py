@@ -6,29 +6,71 @@ from subprocess import call
 
 class ModelJobs(object):
 
-    def __init__(self, num):
+    def __init__(self, num, mode="simple Hernquist"):
 
         self.num = int(num)
         self.num_jobs = self.num * self.num
         self.iter = 0
 
-        self.model_type, self.dz, self.dphi, self.chi = self._mode_hernquist_h_eq_g_chi1()
+        if (mode == "simple Hernquist" or mode == "simple hernquist" or mode == "simple Hernq" or
+                    mode == "simple hernq"):
+            self.model_type, self.dhz, self.dhphi, self.dgz, self.dgphi, self.chi, self.A, self.B\
+                = self._mode_hernquist_h_eq_g_chi1(num)
+        elif (mode == "A,B only" or mode == "A B only" or mode == "A, B only" or mode == "A and B only" or
+                      mode == "A & B only"):
+            self.model_type, self.dhz, self.dhphi, self.dgz, self.dgphi, self.chi, self.A, self.B\
+                = self._mode_a_b_only(num)
+        elif mode == "A hJ" or mode == "A and hJ" or mode == "A & hJ":
+            self.model_type, self.dhz, self.dhphi, self.dgz, self.dgphi, self.chi, self.A, self.B\
+                = self._mode_a_h(num)
+        else:
+            raise ValueError("Set 'mode' properly!")
 
         self.input_dir = "inputfiles/"
         self.jobs_dir = "jobfiles/"
         self.basename = ""
 
-    def _mode_hernquist_h_eq_g_chi1(self,):
+    def _mode_hernquist_h_eq_g_chi1(self, num):
 
         model_type = "Hernquist"
-        x = append(linspace(0.2, 1., num=self.num_jobs/2, endpoint=False), linspace(1, 5, num=self.num_jobs/2))
-        y = append(linspace(0.2, 1., num=self.num_jobs/2, endpoint=False), linspace(1, 5, num=self.num_jobs/2))
+        x = append(linspace(0.2, 1., num=num / 2, endpoint=False), linspace(1, 5, num=num / 2))
+        y = append(linspace(0.2, 1., num=num / 2, endpoint=False), linspace(1, 5, num=num / 2))
 
         chi = ones(self.num_jobs, dtype=float)
         dz, dphi = meshgrid(x, y)
         dz, dphi = reshape(dz, self.num_jobs), reshape(dphi, self.num_jobs)
 
-        return model_type, dz, dphi, chi
+        return model_type, dz, dphi, dz, dphi, chi, 'none', 'none'
+
+    def _mode_a_b_only(self, num):
+
+        model_type = "null"
+
+        dhphi, dhz = 0.5 * ones(self.num_jobs, dtype=float), 0.5 * ones(self.num_jobs, dtype=float)
+        dgphi, dgz = ones(self.num_jobs, dtype=float), ones(self.num_jobs, dtype=float)
+        chi = ones(self.num_jobs, dtype=float)
+
+        x = linspace(0.7, 2.5, num=num)
+        y = linspace(2.5, 6.5, num=num)
+        a, b = meshgrid(x, y)
+        a, b = reshape(a, self.num_jobs), reshape(b, self.num_jobs)
+
+        return model_type, dhz, dhphi, dgz, dgphi, chi, a, b
+
+    def _mode_a_h(self, num):
+
+        model_type = "null"
+
+        dgphi, dgz = ones(self.num_jobs, dtype=float), ones(self.num_jobs, dtype=float)
+        chi = ones(self.num_jobs, dtype=float)
+        b = 5. * ones(self.num_jobs, dtype=float)
+
+        x = linspace(0.7, 2.5, num=num)
+        y = append(linspace(0.2, 1., num=num / 2, endpoint=False), linspace(1, 5, num=num / 2))
+        a, dh = meshgrid(x, y)
+        a, dh = reshape(a, self.num_jobs), reshape(dh, self.num_jobs)
+
+        return model_type, dh, dh, dgz, dgphi, chi, a, b
 
     def launch_jobs(self):
 
@@ -40,19 +82,36 @@ class ModelJobs(object):
             call(["qsub", pbs_script_name])
             self._advance_iter()
 
+    def test_launch_jobs(self):
+
+        for i in range(self.num_jobs):
+
+            self.print_input_file()
+            pbs_script_name = self.print_pbs_script()
+
+            call(["echo", pbs_script_name])
+            self._advance_iter()
+
     def print_input_file(self):
 
-        dphi, dz, chi = self.dphi[self.iter], self.dz[self.iter], self.chi[self.iter]
-        name = self._get_basename(dphi, dz, chi)
+        dhphi, dhz, dgphi, dgz, chi = self.dhphi[self.iter], self.dhz[self.iter], \
+            self.dgphi[self.iter], self.dgz[self.iter], \
+            self.chi[self.iter]
+        name = self._get_basename(dhphi, dhz, dgphi, dgz, chi)
 
         f = open(self.input_dir+name+".par", 'w')
         f.write("itermax    5\n")
-        f.write("model      "+self.model_type+"\n")
+        if self.model_type is "null":
+            f.write("# model      "+self.model_type+"\n")
+            f.write("A            "+str(self.A[self.iter])+"\n")
+            f.write("B            "+str(self.B[self.iter])+"\n")
+        else:
+            f.write("model      "+self.model_type+"\n")
         f.write("outfile    "+name+"\n")
-        f.write("h(J):dphi  "+str(dphi)+"\n")
-        f.write("h(J):dz    "+str(dz)+"\n")
-        f.write("g(J):dphi  "+str(dphi)+"\n")
-        f.write("g(J):dz    "+str(dz)+"\n")
+        f.write("h(J):dphi  "+str(dhphi)+"\n")
+        f.write("h(J):dz    "+str(dhz)+"\n")
+        f.write("g(J):dphi  "+str(dgphi)+"\n")
+        f.write("g(J):dz    "+str(dgz)+"\n")
         f.write("chi        "+str(chi)+"\n")
         f.write("mass       1.\n")
         f.write("r0         1.\n")
@@ -78,10 +137,15 @@ class ModelJobs(object):
 
         return pbs_script_name
 
-    def _get_basename(self, dphi, dz, chi):
+    def _get_basename(self, dhphi, dhz, dgphi, dgz, chi):
 
-        self.basename = self.model_type[0:5] + \
-            "_dp" + '{:4.2f}'.format(dphi) + "_dz" + '{:4.2f}'.format(dz) + "_c" + '{:4.2f}'.format(chi)
+        if self.model_type == "null":
+            mod_name = "A" + '{:4.2f}'.format(self.A[self.iter]) + "_B" + '{:4.2f}'.format(self.B[self.iter])
+        else:
+            mod_name = self.model_type[0:5]
+        self.basename = mod_name + \
+            "_dp" + '{:4.2f}'.format(dhphi) + "_" + '{:4.2f}'.format(dgphi) + "_dz" + '{:4.2f}'.format(dhz) + "_" + \
+            '{:4.2f}'.format(dgz) + "_c" + '{:4.2f}'.format(chi)
         return self.basename
 
     def _advance_iter(self):
