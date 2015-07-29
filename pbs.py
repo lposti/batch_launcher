@@ -64,7 +64,7 @@ class ModelJobs(object):
         f.write("#PBS -e "+self.basename+".err\n")
         f.write("#PBS -m a\n")
         f.write("#PBS -M lorenzo.posti@gmail.com\n")
-        f.write("cd /gpfs/scratch/userexternal/lposti00/fJmodels\n")
+        f.write("cd /gpfs/work/IscrC_CALIFAfJ/fJmodels/\n")
         f.write("module load intel/cs-xe-2015--binary\n")
         f.write("module load gsl/1.16--intel--cs-xe-2015--binary\n")
         f.write("./fJmodels "+self.input_dir+self.basename+".par \n")
