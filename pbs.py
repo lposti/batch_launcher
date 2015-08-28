@@ -1,6 +1,6 @@
 __author__ = 'lposti'
 
-from numpy import linspace, append, meshgrid, reshape, ones
+from numpy import linspace, logspace, append, meshgrid, reshape, ones
 from subprocess import call
 
 
@@ -23,6 +23,9 @@ class ModelJobs(object):
         elif mode == "A hJ" or mode == "A and hJ" or mode == "A & hJ":
             self.model_type, self.dhz, self.dhphi, self.dgz, self.dgphi, self.chi, self.A, self.B\
                 = self._mode_a_h(num)
+        elif mode == "mock catalog" or mode == 'catalog' or mode == 'mock':
+            self.model_type, self.dhz, self.dhphi, self.dgz, self.dgphi, self.chi, self.A, self.B\
+                = self._mode_catalog(num)
         else:
             raise ValueError("Set 'mode' properly!")
 
@@ -33,8 +36,9 @@ class ModelJobs(object):
     def _mode_hernquist_h_eq_g_chi1(self, num):
 
         model_type = "Hernquist"
-        x = append(linspace(0.2, 1., num=num / 2, endpoint=False), linspace(1, 5, num=num / 2))
-        y = append(linspace(0.2, 1., num=num / 2, endpoint=False), linspace(1, 5, num=num / 2))
+        max_delta = 10.
+        x = append(linspace(1. / max_delta, 1., num=num / 2, endpoint=False), linspace(1, max_delta, num=num / 2))
+        y = append(linspace(1. / max_delta, 1., num=num / 2, endpoint=False), linspace(1, 1. / max_delta, num=num / 2))
 
         chi = ones(self.num_jobs, dtype=float)
         dz, dphi = meshgrid(x, y)
@@ -71,6 +75,20 @@ class ModelJobs(object):
         a, dh = reshape(a, self.num_jobs), reshape(dh, self.num_jobs)
 
         return model_type, dh, dh, dgz, dgphi, chi, a, b
+
+    def _mode_catalog(self, num):
+
+        model_type = "Hernquist"
+        x = logspace(-2., 0., num=num)
+        y = logspace(-2., 0., num=num)
+
+        chi = ones(self.num_jobs, dtype=float)
+        dhz, dhphi = 0.5 * ones(self.num_jobs, dtype=float), 0.5 * ones(self.num_jobs, dtype=float)
+
+        dgz, dgphi = meshgrid(x, y)
+        dgz, dgphi = reshape(dgz, self.num_jobs), reshape(dgphi, self.num_jobs)
+
+        return model_type, dhz, dhphi, dgz, dgphi, chi, 'none', 'none'
 
     def launch_jobs(self):
 
