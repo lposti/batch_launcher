@@ -79,8 +79,8 @@ class ModelJobs(object):
     def _mode_catalog(self, num):
 
         model_type = "Hernquist"
-        x = logspace(-2., 0., num=num)
-        y = logspace(-2., 0., num=num)
+        x = logspace(-2., 1., num=num)
+        y = logspace(-2., 1., num=num)
 
         chi = ones(self.num_jobs, dtype=float)
         dhz, dhphi = 0.5 * ones(self.num_jobs, dtype=float), 0.5 * ones(self.num_jobs, dtype=float)
